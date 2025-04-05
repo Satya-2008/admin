@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Access Panel</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #111;
+      color: #fff;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #00e676;
+    }
+
+    .request {
+      background: #1c1c1c;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+    }
+
+    button {
+      padding: 8px 12px;
+      background-color: #00c853;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #00b341;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>👑 Admin Approval Panel</h1>
+  <div id="requestsContainer"></div>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    // Firebase import
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA5YUhpgFScfmaPw9EEiXwwNl3j-n0Fz5Q",
+      authDomain: "cyber-auth-e504c.firebaseapp.com",
+      projectId: "cyber-auth-e504c",
+      storageBucket: "cyber-auth-e504c.appspot.com",
+      messagingSenderId: "125074118764",
+      appId: "1:125074118764:web:a5656962cbf3990f56e049",
+      measurementId: "G-WNCQE8J1BL"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const container = document.getElementById('requestsContainer');
+
+    async function loadRequests() {
+      const snapshot = await getDocs(collection(db, "requests"));
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (!data.approved) {
+          const div = document.createElement('div');
+          div.className = 'request';
+          div.innerHTML = `
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Phone:</strong> ${data.phone}</p>
+            <button onclick="approve('${docSnap.id}')">Approve</button>
+          `;
+          container.appendChild(div);
+        }
+      });
+    }
+
+    window.approve = async function (id) {
+      const ref = doc(db, "requests", id);
+      await updateDoc(ref, { approved: true });
+      alert("Access Approved!");
+      location.reload();
+    };
+
+    loadRequests();
+  </script>
+</body>
+</html>
