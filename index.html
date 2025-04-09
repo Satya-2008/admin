@@ -2,50 +2,84 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin Access Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cyber Admin Panel</title>
   <style>
     body {
+      background: #111;
+      color: #eee;
       font-family: 'Segoe UI', sans-serif;
-      background-color: #111;
-      color: #fff;
       padding: 20px;
     }
 
     h1 {
-      color: #00e676;
+      text-align: center;
+      color: #00ffcc;
     }
 
-    .request {
-      background: #1c1c1c;
-      padding: 15px;
-      margin-bottom: 10px;
+    .login-form, .admin-panel {
+      max-width: 500px;
+      margin: 30px auto;
+      background: #222;
+      padding: 20px;
       border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0,255,255,0.1);
+    }
+
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1rem;
     }
 
     button {
-      padding: 8px 12px;
-      background-color: #00c853;
-      border: none;
-      border-radius: 4px;
-      color: #fff;
+      background: #00c853;
+      color: white;
       cursor: pointer;
     }
 
-    button:hover {
-      background-color: #00b341;
+    .user-card {
+      background: #333;
+      padding: 15px;
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    .user-card button {
+      margin-top: 8px;
+      background: #2196F3;
+    }
+
+    .user-card .reject {
+      background: #ff5252;
     }
   </style>
 </head>
 <body>
 
-  <h1>👑 Admin Approval Panel</h1>
-  <div id="requestsContainer"></div>
+  <h1>Cyber Café Owner Panel</h1>
 
-  <!-- Firebase SDKs -->
+  <div class="login-form" id="loginForm">
+    <input type="email" id="adminEmail" placeholder="Owner Email" required>
+    <input type="password" id="adminPassword" placeholder="Password" required>
+    <button onclick="loginOwner()">Login as Owner</button>
+  </div>
+
+  <div class="admin-panel" id="adminPanel" style="display: none;">
+    <h3>Pending Access Requests</h3>
+    <div id="requests"></div>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <!-- Firebase -->
   <script type="module">
-    // Firebase import
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+    // Firebase config
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyA5YUhpgFScfmaPw9EEiXwwNl3j-n0Fz5Q",
@@ -58,35 +92,72 @@
     };
 
     const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
     const db = getFirestore(app);
 
-    const container = document.getElementById('requestsContainer');
+    // Login function
+    window.loginOwner = async function () {
+      const email = document.getElementById("adminEmail").value;
+      const password = document.getElementById("adminPassword").value;
 
-    async function loadRequests() {
-      const snapshot = await getDocs(collection(db, "requests"));
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (!data.approved) {
-          const div = document.createElement('div');
-          div.className = 'request';
-          div.innerHTML = `
-            <p><strong>Name:</strong> ${data.name}</p>
-            <p><strong>Phone:</strong> ${data.phone}</p>
-            <button onclick="approve('${docSnap.id}')">Approve</button>
-          `;
-          container.appendChild(div);
-        }
-      });
-    }
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("adminPanel").style.display = "block";
+        loadRequests();
+      } catch (error) {
+        alert("Login failed. Please check credentials.");
+        console.error(error);
+      }
+    };
 
-    window.approve = async function (id) {
-      const ref = doc(db, "requests", id);
-      await updateDoc(ref, { approved: true });
-      alert("Access Approved!");
+    // Logout
+    window.logout = async function () {
+      await signOut(auth);
       location.reload();
     };
 
-    loadRequests();
+    // Load pending requests
+    function loadRequests() {
+      const requestsRef = collection(db, "accessRequests");
+
+      onSnapshot(requestsRef, (snapshot) => {
+        const container = document.getElementById("requests");
+        container.innerHTML = "";
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.status === "pending") {
+            const card = document.createElement("div");
+            card.className = "user-card";
+            card.innerHTML = `
+              <p><strong>Name:</strong> ${data.name}</p>
+              <p><strong>Phone:</strong> ${data.phone}</p>
+              <p><strong>Time:</strong> ${new Date(data.timestamp).toLocaleString()}</p>
+              <button onclick="approve('${docSnap.id}')">✅ Approve</button>
+              <button class="reject" onclick="reject('${docSnap.id}')">❌ Reject</button>
+            `;
+            container.appendChild(card);
+          }
+        });
+      });
+    }
+
+    // Approve user
+    window.approve = async function (id) {
+      await updateDoc(doc(db, "accessRequests", id), {
+        status: "approved"
+      });
+      alert("Access approved ✅");
+    };
+
+    // Reject user
+    window.reject = async function (id) {
+      await updateDoc(doc(db, "accessRequests", id), {
+        status: "rejected"
+      });
+      alert("Access rejected ❌");
+    };
   </script>
 </body>
 </html>
